@@ -1245,6 +1245,28 @@ add_filter('woocommerce_hidden_order_itemmeta', function($hidden_meta) {
     $hidden_meta[] = '_mapped_product_id';
     return $hidden_meta;
 }, 10, 1);
+
+// Prevent WooCommerce from recalculating taxes on mirrored orders
+add_filter('woocommerce_order_get_total', function($total, $order) {
+    if ($order->meta_exists('_wppps_tax_adjusted') && $order->get_meta('_wppps_tax_adjusted') === 'yes') {
+        // Return the total from meta directly
+        $saved_total = $order->get_meta('_order_total');
+        if (!empty($saved_total)) {
+            return $saved_total;
+        }
+    }
+    return $total;
+}, 100, 2);
+
+add_filter('woocommerce_order_calculate_totals', function($and_taxes, $order) {
+    if ($order->meta_exists('_wppps_tax_adjusted') && $order->get_meta('_wppps_tax_adjusted') === 'yes') {
+        // Don't calculate totals for orders with adjusted taxes
+        return false;
+    }
+    return $and_taxes;
+}, 10, 2);
+
+
 /**
  * Plugin deactivation hook
  */

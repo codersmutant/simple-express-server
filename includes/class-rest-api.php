@@ -1418,50 +1418,141 @@ public function create_express_checkout($request) {
 
 
 
-/**
- * Capture Express Checkout payment
- */
 public function capture_express_payment($request) {
+
     error_log('Express Checkout: Received capture payment request');
+
     
+
     // Get request data
+
     $params = $this->get_json_params($request);
+
     
+
     error_log('Express Checkout: Got JSON params: ' . json_encode($params));
+
     
+
     if (empty($params)) {
+
         error_log('Express Checkout: Invalid request format - empty params');
+
         return new WP_Error(
+
             'invalid_request',
+
             __('Invalid request format', 'woo-paypal-proxy-server'),
+
             array('status' => 400)
+
         );
+
     }
+
     
-    // Extract parameters
+
+    // Extract top-level parameters
+
     $api_key = isset($params['api_key']) ? $params['api_key'] : '';
+
     $hash = isset($params['hash']) ? $params['hash'] : '';
+
     $timestamp = isset($params['timestamp']) ? $params['timestamp'] : '';
-    $order_id = isset($params['order_id']) ? $params['order_id'] : '';
-    $paypal_order_id = isset($params['paypal_order_id']) ? $params['paypal_order_id'] : '';
-    $server_id = isset($params['server_id']) ? $params['server_id'] : '';
+
     
-    // Check for required fields - IMPORTANT: Be more lenient with parameter format
-    $missing_params = array();
-    if (empty($api_key)) $missing_params[] = 'api_key';
-    if (empty($hash)) $missing_params[] = 'hash';
-    if (empty($timestamp)) $missing_params[] = 'timestamp';
-    if (empty($order_id)) $missing_params[] = 'order_id';
-    if (empty($paypal_order_id)) $missing_params[] = 'paypal_order_id';
+
+    // DECODE the request_data to get the actual order information
+
+    $request_data_encoded = isset($params['request_data']) ? $params['request_data'] : '';
+
     
-    if (!empty($missing_params)) {
-        error_log('Express Checkout: Missing required parameters: ' . implode(', ', $missing_params));
+
+    if (empty($request_data_encoded)) {
+
+        error_log('Express Checkout: Missing request_data field');
+
         return new WP_Error(
-            'missing_params',
-            __('Missing required parameters: ' . implode(', ', $missing_params), 'woo-paypal-proxy-server'),
+
+            'missing_request_data',
+
+            __('Missing request_data parameter', 'woo-paypal-proxy-server'),
+
             array('status' => 400)
+
         );
+
     }
+
+    
+
+    // Decode the request data
+
+    $request_data = json_decode(base64_decode($request_data_encoded), true);
+
+    
+
+    if (empty($request_data)) {
+
+        error_log('Express Checkout: Invalid request_data format');
+
+        return new WP_Error(
+
+            'invalid_request_data',
+
+            __('Invalid request_data format', 'woo-paypal-proxy-server'),
+
+            array('status' => 400)
+
+        );
+
+    }
+
+    
+
+    // Extract parameters from decoded request_data
+
+    $order_id = isset($request_data['order_id']) ? $request_data['order_id'] : '';
+
+    $paypal_order_id = isset($request_data['paypal_order_id']) ? $request_data['paypal_order_id'] : '';
+
+    $server_id = isset($request_data['server_id']) ? $request_data['server_id'] : '';
+
+    
+
+    // Check for required fields
+
+    $missing_params = array();
+
+    if (empty($api_key)) $missing_params[] = 'api_key';
+
+    if (empty($hash)) $missing_params[] = 'hash';
+
+    if (empty($timestamp)) $missing_params[] = 'timestamp';
+
+    if (empty($order_id)) $missing_params[] = 'order_id';
+
+    if (empty($paypal_order_id)) $missing_params[] = 'paypal_order_id';
+
+    
+
+    if (!empty($missing_params)) {
+
+        error_log('Express Checkout: Missing required parameters: ' . implode(', ', $missing_params));
+
+        return new WP_Error(
+
+            'missing_params',
+
+            __('Missing required parameters: ' . implode(', ', $missing_params), 'woo-paypal-proxy-server'),
+
+            array('status' => 400)
+
+        );
+
+    }
+
+    
     
     // Get site by API key
     $site = $this->get_site_by_api_key($api_key);
